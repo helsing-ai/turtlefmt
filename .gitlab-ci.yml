@@ -1,0 +1,44 @@
+image: "rust:latest"
+
+fmt:
+  before_script:
+    - rustup component add rustfmt
+  script:
+    - cargo fmt --check
+
+clippy:
+  before_script:
+    - apt-get update -yqq
+    - apt-get install clang nodejs -yqq
+    - rustup component add clippy
+  script:
+    - cargo clippy --all-targets --all-features
+
+clippy_msrv:
+  before_script:
+    - apt-get update -yqq
+    - apt-get install clang nodejs -yqq
+    - rustup override set 1.65.0
+    - rustup component add clippy
+  script:
+    - cargo clippy --all-targets --all-features -- -D warnings -D clippy::all
+
+test:
+  before_script:
+    - apt-get update -yqq
+    - apt-get install clang nodejs -yqq
+    - rustup component add clippy
+  script:
+    - cargo test
+  cache:
+    key: w3c-testsuite
+    paths:
+      - tests/cache
+
+python:
+  before_script:
+    - apt-get update -yqq
+    - apt-get install clang nodejs python3-pip -yqq
+  script:
+    - pip install .
+    - turtlefmt --check tests/to.simple.ttl

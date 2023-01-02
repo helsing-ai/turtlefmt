@@ -1,0 +1,19 @@
+[project]
+name = "turtlefmt"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Rust",
+]
+
+[project.urls]
+Source = "https://gitlab.com/helsing/turtlefmt"
+Tracker = "https://gitlab.com/helsing/turtlefmt/-/issues"
+
+[build-system]
+requires = ["maturin>=0.14,<0.15"]
+build-backend = "maturin"
+
+[tool.maturin]
+bindings = "bin"

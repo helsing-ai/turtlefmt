@@ -1,0 +1,45 @@
+===================================
+Complete file to check node mapping
+===================================
+
+@base <http://example.com/> .
+base <http://example.com/>
+@prefix ex: <http://example.com/> .
+prefix ex: <http://example.com/>
+ex:foo a ex:Bar ; # test
+  <p> ( "s" "s"@en "s"^^<dt> ) , 12 , true , _:foo , [] .
+[ ex:p 1.2 , 1.2e3 ] .
+[] ex:p 'a\'\u1111\UaAbBcCbD' , """b""c""" , '''c''c''' .
+---
+
+(turtle_doc
+  (base iri: (iriref))
+  (base iri: (iriref))
+  (prefix label: (pn_prefix) iri: (iriref))
+  (prefix label: (pn_prefix) iri: (iriref))
+  (triples
+    subject: (prefixed_name)
+    (predicate_objects
+      predicate: (a)
+      (prefixed_name))
+    (comment)
+    (predicate_objects
+      predicate: (iriref)
+      (collection (literal value: (string)) (literal value: (string) language: (langtag)) (literal value: (string) datatype: (iriref)))
+      (integer)
+      (boolean)
+      (blank_node_label)
+      (anon)))
+  (triples
+    subject: (blank_node_property_list
+      (predicate_objects
+        predicate: (prefixed_name)
+        (decimal)
+        (double))))
+  (triples
+    subject: (anon)
+      (predicate_objects
+        predicate: (prefixed_name)
+        (literal value: (string))
+        (literal value: (string))
+        (literal value: (string)))))
