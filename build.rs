@@ -15,20 +15,35 @@
 */
 
 use std::path::Path;
+use std::{env, fs};
 
 fn main() {
-    let base_path = Path::new("tree-sitter").to_path_buf();
-    let grammar_path = base_path.join("grammar.js");
-    let src_path = base_path.join("src");
-    let source_path = src_path.join("parser.c");
+    // We copy TreeSitter data to a subdirectory of the build directory
+    let source_path = Path::new("tree-sitter").to_path_buf();
+    let build_path = Path::new(&env::var_os("OUT_DIR").unwrap()).join("tree-sitter");
+    if !build_path.exists() {
+        fs::create_dir(&build_path).unwrap();
+    }
+    fs::copy(
+        source_path.join("grammar.js"),
+        build_path.join("grammar.js"),
+    )
+    .unwrap();
 
-    tree_sitter_cli::generate::generate_parser_in_directory(&base_path, None, 14, false, None)
+    // We convert the TreeSitter grammar to C
+    tree_sitter_cli::generate::generate_parser_in_directory(&build_path, None, 14, false, None)
         .unwrap();
 
+    // We build the C code
+    let src_path = build_path.join("src");
     cc::Build::new()
         .include(&src_path)
-        .file(&source_path)
+        .file(src_path.join("parser.c"))
         .compile("parser");
 
-    println!("cargo:rerun-if-changed={}", grammar_path.to_str().unwrap());
+    // We make sure the build is run again if the grammar changes
+    println!(
+        "cargo:rerun-if-changed={}",
+        source_path.join("grammar.js").to_str().unwrap()
+    );
 }
