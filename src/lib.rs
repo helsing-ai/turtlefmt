@@ -63,73 +63,105 @@ struct TurtleFormatter<'a, W: Write> {
 impl<'a, W: Write> TurtleFormatter<'a, W> {
     fn fmt_doc(&mut self, node: Node<'_>) -> Result<()> {
         debug_assert_eq!(node.kind(), "turtle_doc");
-        #[derive(Eq, PartialEq)]
-        enum Context {
-            Start,
-            Prefixes,
-            Triples,
-            Comment,
-        }
 
-        let mut context = Context::Start;
+        let mut context = RootContext::Start;
         let mut row = node.start_position().row;
+        let mut prefix_buffer: Vec<(Node<'_>, Vec<Node<'_>>)> = Vec::new();
         for child in Self::iter_children(node)? {
             match child.kind() {
                 "comment" => {
                     if child.start_position().row == row {
-                        // Inline comment
-                        self.fmt_comments([child], true)?;
-                        if context == Context::Start {
-                            context = Context::Comment;
+                        if let Some((_, prefix_comments)) = prefix_buffer.last_mut() {
+                            // We keep the comment connected to the prefixes
+                            prefix_comments.push(child);
+                        } else {
+                            // Inline comment
+                            self.fmt_comments([child], true)?;
+                            if context == RootContext::Start {
+                                context = RootContext::Comment;
+                            }
                         }
                     } else {
                         // Block comment
-                        if context != Context::Start {
-                            for _ in 0..(child.start_position().row - row)
-                                .clamp(if context == Context::Comment { 1 } else { 2 }, 4)
-                            {
+                        self.fmt_possible_prefixes(&mut prefix_buffer, &mut context)?;
+                        if context != RootContext::Start {
+                            for _ in 0..(child.start_position().row - row).clamp(
+                                if context == RootContext::Comment {
+                                    1
+                                } else {
+                                    2
+                                },
+                                4,
+                            ) {
                                 writeln!(self.output)?;
                             }
                         }
                         self.fmt_comments([child], false)?;
-                        context = Context::Comment;
+                        context = RootContext::Comment;
                     }
                 }
                 "base" => {
-                    if context != Context::Start {
+                    self.fmt_possible_prefixes(&mut prefix_buffer, &mut context)?;
+                    if context != RootContext::Start {
                         writeln!(self.output)?;
                     }
-                    if context == Context::Triples {
+                    if context == RootContext::Triples {
                         writeln!(self.output)?;
                     }
+                    context = RootContext::Prefixes;
                     self.fmt_base(child)?;
-                    context = Context::Prefixes;
                 }
                 "prefix" => {
-                    if context != Context::Start {
-                        writeln!(self.output)?;
-                    }
-                    if context == Context::Triples {
-                        writeln!(self.output)?;
-                    }
-                    self.fmt_prefix(child)?;
-                    context = Context::Prefixes;
+                    prefix_buffer.push((child, Vec::new()));
                 }
                 "triples" => {
-                    if context != Context::Start {
-                        if context != Context::Comment || child.start_position().row > row + 1 {
+                    self.fmt_possible_prefixes(&mut prefix_buffer, &mut context)?;
+                    if context != RootContext::Start {
+                        if context != RootContext::Comment || child.start_position().row > row + 1 {
                             writeln!(self.output)?;
                         }
                         writeln!(self.output)?;
                     }
                     self.fmt_triples(child)?;
-                    context = Context::Triples;
+                    context = RootContext::Triples;
                 }
                 _ => bail!("Unexpected turtle_doc child: {}", child.to_sexp()),
             }
             row = child.end_position().row;
         }
+        self.fmt_possible_prefixes(&mut prefix_buffer, &mut context)?;
         writeln!(self.output)?;
+        Ok(())
+    }
+
+    fn fmt_possible_prefixes(
+        &mut self,
+        nodes: &mut Vec<(Node<'_>, Vec<Node<'_>>)>,
+        context: &mut RootContext,
+    ) -> Result<()> {
+        if nodes.is_empty() {
+            return Ok(());
+        }
+        if *context != RootContext::Start {
+            writeln!(self.output)?;
+        }
+        if *context == RootContext::Triples {
+            writeln!(self.output)?;
+        }
+        nodes.sort_by_key(|(node, _)| {
+            node.child_by_field_name("label")
+                .map_or("", |n| n.utf8_text(self.file).unwrap_or(""))
+        });
+        for (i, (node, comments)) in nodes.iter().enumerate() {
+            if i > 0 {
+                writeln!(self.output)?;
+            }
+            debug_assert_eq!(node.kind(), "prefix");
+            self.fmt_prefix(*node)?;
+            self.fmt_comments(comments.iter().copied(), true)?;
+        }
+        nodes.clear();
+        *context = RootContext::Prefixes;
         Ok(())
     }
 
@@ -693,6 +725,14 @@ fn is_turtle_double(value: &str) -> bool {
         value = &value[1..];
     }
     (with_before || with_after) && !value.is_empty() && value.iter().all(|c| c.is_ascii_digit())
+}
+
+#[derive(Eq, PartialEq)]
+enum RootContext {
+    Start,
+    Prefixes,
+    Triples,
+    Comment,
 }
 
 #[cfg(test)]
