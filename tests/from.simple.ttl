@@ -1,9 +1,9 @@
-BASE  # Base
-    <http://example.org/test.ttl>
-@prefix ex: <http://example.com/>  # Prefix
-.
+@base <http://example.com/> . # test
+@prefix ex: </> . # Prefix
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+BASE  # Base
+    <http://example.org/test.ttl>
 
 # Plain
 # Plain 2
