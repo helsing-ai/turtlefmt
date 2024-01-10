@@ -48,10 +48,9 @@ fn parse_turtle(url: &str, data: &str) -> Result<Graph> {
 }
 
 fn run_test(test: SubjectRef<'_>, manifest: &Graph) -> Result<()> {
-    let Some(TermRef::NamedNode(test_type)) = manifest.object_for_subject_predicate(
-        test,
-        rdf::TYPE,
-    ) else {
+    let Some(TermRef::NamedNode(test_type)) =
+        manifest.object_for_subject_predicate(test, rdf::TYPE)
+    else {
         bail!("No type")
     };
 
@@ -103,8 +102,8 @@ fn test_w3c_files() -> Result<()> {
     fs::create_dir_all(CACHE)?; // We ensure cache existence
 
     let manifest = parse_turtle(
-        "http://w3c.github.io/rdf-tests/turtle/manifest.ttl",
-        &get_remote_file("http://w3c.github.io/rdf-tests/turtle/manifest.ttl")?,
+        "http://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/manifest.ttl",
+        &get_remote_file("http://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/manifest.ttl")?,
     )?;
     let errors = manifest
         .subjects_for_predicate_object(
