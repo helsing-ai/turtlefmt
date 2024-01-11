@@ -71,10 +71,10 @@ fn main() -> Result<ExitCode> {
             let patch = create_patch(&original, &formatted);
             eprintln!("The format of {} is not correct", file.display());
             println!("{}", PatchFormatter::new().with_color().fmt_patch(&patch));
+            exit_code = ExitCode::from(65);
         } else {
             fs::write(&file, formatted)?;
         }
-        exit_code = ExitCode::from(65);
     }
     Ok(exit_code)
 }
