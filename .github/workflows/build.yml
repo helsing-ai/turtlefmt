@@ -7,6 +7,13 @@ on:
   push:
     branches:
       - main
+  release:
+    types:
+      - published
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   fmt:
@@ -59,13 +66,131 @@ jobs:
       - run: cargo install typos-cli || true
       - run: typos
 
-  python:
+  python_sdist:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install .
+      - run: pip install maturin
+      - run: maturin sdist
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: target/wheels/*.tar.gz
+
+  wheel_linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        architecture: [ "x86_64", "aarch64" ]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v2
+        with:
+          platforms: linux/${{ matrix.architecture }}
+        if: matrix.architecture != 'x86_64'
+      - uses: Swatinem/rust-cache@v2
+      - run: sed 's/%arch%/${{ matrix.architecture }}/g' .github/workflows/manylinux_build.sh | sed 's/%for_each_version%/${{ github.event_name == 'release' || '' }}/g' > .github/workflows/manylinux_build_script.sh
+      - run: docker run -v "$(pwd)":/workdir --platform linux/${{ matrix.architecture }} quay.io/pypa/manylinux2014_${{ matrix.architecture }} /bin/bash /workdir/.github/workflows/manylinux_build_script.sh
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: target/wheels/*.whl
+
+  wheel_linux_musl:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        architecture: ["x86_64"] # TODO: aarch64 seems to fail for some reason
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v2
+        with:
+          platforms: linux/${{ matrix.architecture }}
+        if: matrix.architecture != 'x86_64'
+      - uses: Swatinem/rust-cache@v2
+      - run: sed 's/%arch%/${{ matrix.architecture }}/g' .github/workflows/musllinux_build.sh | sed 's/%for_each_version%/${{ github.event_name == 'release' || '' }}/g' > .github/workflows/musllinux_build_script.sh
+      - run: docker run -v "$(pwd)":/workdir --platform linux/${{ matrix.architecture }} quay.io/pypa/musllinux_1_2_${{ matrix.architecture }} /bin/bash /workdir/.github/workflows/musllinux_build_script.sh
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: target/wheels/*.whl
+
+  wheel_mac:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        architecture: [ "x86_64", "aarch64" ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup target add ${{ matrix.architecture }}-apple-darwin
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install maturin
+      - run: maturin build --release --target ${{ matrix.architecture }}-apple-darwin
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: target/wheels/*.whl
+
+  wheel_windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
+      - run: pip install maturin
+      - run: maturin build --release
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: target/wheels/*.whl
+
+  publish_pypi:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyoxigraph
+    permissions:
+      id-token: write
+    needs:
+      - python_sdist
+      - wheel_windows
+      - wheel_mac
+      - wheel_linux
+      - wheel_linux_musl
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          skip-existing: true
+
+  python_test:
+    runs-on: ubuntu-latest
+    needs:
+      - wheel_linux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - run: pip install --no-index --find-links=dist/ turtlefmt
       - run: turtlefmt --check tests/to.simple.ttl
