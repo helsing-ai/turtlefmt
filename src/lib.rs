@@ -204,6 +204,14 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         self.fmt_comments(comments, true)
     }
 
+    fn new_indented_line(&mut self, indents: usize) -> Result<()> {
+        writeln!(self.output)?;
+        for _ in 0..(self.options.indentation * indents) {
+            write!(self.output, " ")?;
+        }
+        Ok(())
+    }
+
     fn fmt_triples(&mut self, node: Node<'_>) -> Result<()> {
         debug_assert_eq!(node.kind(), "triples");
         let mut comments = Vec::new();
@@ -218,10 +226,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                     } else {
                         write!(self.output, " ;")?;
                         self.fmt_comments(comments.drain(0..), true)?;
-                        writeln!(self.output)?;
-                        for _ in 0..self.options.indentation {
-                            write!(self.output, " ")?;
-                        }
+                        self.new_indented_line(1)?;
                     }
                     self.fmt_predicate_objects(child, &mut comments)?;
                 }
