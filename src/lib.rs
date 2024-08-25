@@ -21,6 +21,7 @@ use std::fmt::Write;
 use tree_sitter::{Language, Node};
 
 pub struct FormatOptions {
+    /// Number of spaces used for one level of indentation
     pub indentation: usize,
 }
 
