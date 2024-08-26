@@ -23,11 +23,41 @@ use tree_sitter::{Language, Node};
 pub struct FormatOptions {
     /// Number of spaces used for one level of indentation
     pub indentation: usize,
+    /// Wether to sort subjects
+    pub sort_subjects: bool,
+    /// Wether to sort predicates within a subject
+    pub sort_predicates: bool,
+    /// Wether to sort objects withing one subject-predicate pair
+    pub sort_objects: bool,
+    /// Wether a subjects finalizing dot should be on a new line,
+    /// or on the same line as the last object
+    pub subject_dot_on_new_line: bool,
+    /// Whether the first predicate of a subject should be on a new line,
+    /// or on the same line as the subject
+    pub first_predicate_on_new_line: bool,
+    /// Wether to move the first object within one subject-predicate pair onto a new line,
+    /// or on the same line as the predicate
+    pub first_object_on_new_line: bool,
+    /// Wether to move the a single object (within one subject-predicate pair) onto a new line,
+    /// or to keep it on the same line as the predicate
+    pub single_object_on_new_line: bool,
+    /// Wether to put each objects within one subject-predicate pair on a separate line
+    pub objects_on_separate_lines: bool,
 }
 
 impl Default for FormatOptions {
     fn default() -> Self {
-        Self { indentation: 4 }
+        Self {
+            indentation: 4,
+            sort_subjects: false,
+            sort_predicates: false,
+            sort_objects: false,
+            subject_dot_on_new_line: false,
+            first_predicate_on_new_line: false,
+            first_object_on_new_line: false,
+            single_object_on_new_line: false,
+            objects_on_separate_lines: false,
+        }
     }
 }
 
@@ -64,11 +94,30 @@ struct TurtleFormatter<'a, W: Write> {
 impl<'a, W: Write> TurtleFormatter<'a, W> {
     fn fmt_doc(&mut self, node: Node<'_>) -> Result<()> {
         debug_assert_eq!(node.kind(), "turtle_doc");
-
         let mut context = RootContext::Start;
         let mut row = node.start_position().row;
         let mut prefix_buffer: Vec<(Node<'_>, Vec<Node<'_>>)> = Vec::new();
-        for child in Self::iter_children(node)? {
+        let children = if self.options.sort_subjects {
+            let mut sorted = vec![];
+            let mut to_be_sorted = vec![];
+            for child in Self::iter_children(node)? {
+                match child.kind() {
+                    "triples" => {
+                        to_be_sorted.push(child);
+                    }
+                    _ => sorted.push(child),
+                }
+            }
+            to_be_sorted.sort_by_key(|n| {
+                n.child_by_field_name("subject")
+                    .map_or("", |n| n.utf8_text(self.file).unwrap_or(""))
+            });
+            sorted.append(&mut to_be_sorted);
+            sorted
+        } else {
+            Self::iter_children(node)?
+        };
+        for child in children {
             match child.kind() {
                 "comment" => {
                     if child.start_position().row == row {
@@ -217,15 +266,41 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         debug_assert_eq!(node.kind(), "triples");
         let mut comments = Vec::new();
         let mut is_first_predicate_objects = true;
-        for child in Self::iter_children(node)? {
+        let children = if self.options.sort_predicates {
+            let mut sorted = vec![];
+            let mut to_be_sorted = vec![];
+            for child in Self::iter_children(node)? {
+                match child.kind() {
+                    "predicate_objects" => {
+                        to_be_sorted.push(child);
+                    }
+                    _ => sorted.push(child),
+                }
+            }
+            to_be_sorted.sort_by_key(|n| {
+                n.child_by_field_name("predicate")
+                    .map_or("", |n| n.utf8_text(self.file).unwrap_or(""))
+            });
+            sorted.append(&mut to_be_sorted);
+            sorted
+        } else {
+            Self::iter_children(node)?
+        };
+        for child in children {
             match child.kind() {
                 "comment" => comments.push(child),
                 "predicate_objects" => {
-                    if is_first_predicate_objects {
-                        write!(self.output, " ")?;
+                    let new_line = if is_first_predicate_objects {
+                        if !self.options.first_predicate_on_new_line {
+                            write!(self.output, " ")?;
+                        }
                         is_first_predicate_objects = false;
+                        self.options.first_predicate_on_new_line
                     } else {
                         write!(self.output, " ;")?;
+                        true
+                    };
+                    if new_line {
                         self.fmt_comments(comments.drain(0..), true)?;
                         self.new_indented_line(1)?;
                     }
@@ -237,7 +312,13 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                 }
             }
         }
-        write!(self.output, " .")?;
+        if self.options.subject_dot_on_new_line {
+            write!(self.output, " ;")?;
+            self.new_indented_line(1)?;
+            write!(self.output, ".")?;
+        } else {
+            write!(self.output, " .")?;
+        }
         self.fmt_comments(comments, true)
     }
 
@@ -249,7 +330,36 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         debug_assert_eq!(node.kind(), "predicate_objects");
         let mut is_predicate = true;
         let mut is_first_object = true;
-        for child in Self::iter_children(node)? {
+        let num_objects = Self::iter_children(node)?
+            .into_iter()
+            .filter(|child| child.kind() != "comment")
+            .count()
+            - 1;
+        let children = if self.options.sort_objects && num_objects > 0 {
+            let unsorted = Self::iter_children(node)?;
+            let mut sorted = vec![];
+            let mut objects = vec![];
+            let mut seen_predicate = false;
+            for child in unsorted {
+                match child.kind() {
+                    "comment" => sorted.push(child),
+                    _ => {
+                        if seen_predicate {
+                            objects.push(child);
+                        } else {
+                            sorted.push(child);
+                            seen_predicate = true;
+                        }
+                    }
+                }
+            }
+            objects.sort_by_key(|n| n.utf8_text(self.file).unwrap_or(""));
+            sorted.append(&mut objects);
+            sorted
+        } else {
+            Self::iter_children(node)?
+        };
+        for child in children {
             match child.kind() {
                 "comment" => comments.push(child),
                 _ => {
@@ -258,8 +368,17 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                         is_predicate = false;
                     } else {
                         if is_first_object {
-                            write!(self.output, " ")?;
+                            if self.options.single_object_on_new_line
+                                || (num_objects > 1 && self.options.first_object_on_new_line)
+                            {
+                                self.new_indented_line(2)?;
+                            } else {
+                                write!(self.output, " ")?;
+                            }
                             is_first_object = false;
+                        } else if self.options.objects_on_separate_lines {
+                            write!(self.output, " ,")?;
+                            self.new_indented_line(2)?;
                         } else {
                             write!(self.output, " , ")?;
                         }
