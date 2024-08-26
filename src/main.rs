@@ -30,10 +30,10 @@ struct Args {
     /// File(s) or directory to format.
     #[arg()]
     src: Vec<PathBuf>,
-    /// Do not edit the file but only checks if it already applies the tool format.
+    /// Do not edit the file but only check if it already applies this tools format.
     #[arg(long)]
     check: bool,
-    /// Number of spaces in the indentation
+    /// Number of spaces per level of indentation
     #[arg(long, default_value = "4")]
     indentation: usize,
 }
