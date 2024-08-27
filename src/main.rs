@@ -59,6 +59,7 @@ impl From<&Args> for FormatOptions {
         if args.diff_optimized {
             FormatOptions {
                 indentation,
+                unify_comment_indents: false,
                 sort_subjects: true,
                 sort_predicates: true,
                 sort_objects: true,
