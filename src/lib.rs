@@ -49,6 +49,11 @@ pub struct FormatOptions {
     pub single_object_on_new_line: bool,
     /// Wether to put each objects within one subject-predicate pair on a separate line
     pub objects_on_separate_lines: bool,
+    /// Wether to put each collection item on a separate line.
+    /// See <https://www.w3.org/TR/rdf12-turtle/#collections>.
+    pub collection_item_on_new_line: bool,
+    /// Wether to put each predicate within a blank-node on a separate line.
+    pub blank_node_predicates_on_separate_lines: bool,
 }
 
 impl Default for FormatOptions {
@@ -65,6 +70,8 @@ impl Default for FormatOptions {
             first_object_on_new_line: false,
             single_object_on_new_line: false,
             objects_on_separate_lines: false,
+            blank_node_predicates_on_separate_lines: false,
+            collection_item_on_new_line: false,
         }
     }
 }
@@ -341,11 +348,11 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                         self.fmt_comments(comments.drain(0..), true)?;
                         self.new_indented_line(1)?;
                     }
-                    self.fmt_predicate_objects(child, &mut comments)?;
+                    self.fmt_predicate_objects(child, &mut comments, 1)?;
                 }
                 _ => {
                     // The subject
-                    self.fmt_term(child, &mut comments, false)?;
+                    self.fmt_term(child, &mut comments, false, 0)?;
                 }
             }
         }
@@ -363,6 +370,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         &mut self,
         node: Node<'b>,
         comments: &mut Vec<Node<'b>>,
+        indent_level: usize,
     ) -> Result<()> {
         debug_assert_eq!(node.kind(), "predicate_objects");
         let mut is_predicate = true;
@@ -401,25 +409,25 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                 "comment" => comments.push(child),
                 _ => {
                     if is_predicate {
-                        self.fmt_term(child, comments, true)?;
+                        self.fmt_term(child, comments, true, indent_level + 1)?;
                         is_predicate = false;
                     } else {
                         if is_first_object {
                             if self.options.single_object_on_new_line
                                 || (num_objects > 1 && self.options.first_object_on_new_line)
                             {
-                                self.new_indented_line(2)?;
+                                self.new_indented_line(indent_level + 1)?;
                             } else {
                                 write!(self.output, " ")?;
                             }
                             is_first_object = false;
                         } else if self.options.objects_on_separate_lines {
                             write!(self.output, " ,")?;
-                            self.new_indented_line(2)?;
+                            self.new_indented_line(indent_level + 1)?;
                         } else {
                             write!(self.output, " , ")?;
                         }
-                        self.fmt_term(child, comments, false)?;
+                        self.fmt_term(child, comments, false, indent_level + 1)?;
                     }
                 }
             }
@@ -432,6 +440,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         node: Node<'b>,
         comments: &mut Vec<Node<'b>>,
         is_predicate: bool,
+        indent_level: usize,
     ) -> Result<()> {
         enum LiteralAnnotation {
             None,
@@ -463,34 +472,79 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
             "blank_node_property_list" => {
                 let mut is_first_predicate_objects = true;
                 write!(self.output, "[")?;
-                for child in Self::iter_children(node)? {
+                let children = if self.options.sort_predicates {
+                    let mut sorted = vec![];
+                    let mut to_be_sorted = vec![];
+                    for child in Self::iter_children(node)? {
+                        match child.kind() {
+                            "predicate_objects" => {
+                                to_be_sorted.push(child);
+                            }
+                            _ => sorted.push(child),
+                        }
+                    }
+                    to_be_sorted.sort_by_key(|n| {
+                        n.child_by_field_name("predicate")
+                            .map_or("", |n| n.utf8_text(self.file).unwrap_or(""))
+                    });
+                    sorted.append(&mut to_be_sorted);
+                    sorted
+                } else {
+                    Self::iter_children(node)?
+                };
+                for child in children {
                     match child.kind() {
                         "comment" => comments.push(child),
                         _ => {
-                            if is_first_predicate_objects {
-                                write!(self.output, " ")?;
-                                is_first_predicate_objects = false;
+                            let new_line =
+                                if is_first_predicate_objects {
+                                    is_first_predicate_objects = false;
+                                    self.options.first_predicate_on_new_line
+                                } else {
+                                    write!(self.output, " ;")?;
+                                    true
+                                } && self.options.blank_node_predicates_on_separate_lines;
+                            if new_line {
+                                self.fmt_comments(comments.drain(0..), true)?;
+                                self.new_indented_line(indent_level + 1)?;
                             } else {
-                                write!(self.output, " ; ")?;
+                                write!(self.output, " ")?;
                             }
-                            self.fmt_predicate_objects(child, comments)?;
+                            self.fmt_predicate_objects(child, comments, indent_level + 1)?;
                         }
                     }
                 }
-                write!(self.output, " ]")?;
+                if self.options.blank_node_predicates_on_separate_lines {
+                    write!(self.output, " ;")?;
+                    self.new_indented_line(indent_level)?;
+                } else {
+                    write!(self.output, " ")?;
+                }
+                write!(self.output, "]")?;
             }
             "collection" => {
                 write!(self.output, "(")?;
+                let new_line = self.options.collection_item_on_new_line;
+                // let new_line = true;
                 for child in Self::iter_children(node)? {
                     match child.kind() {
                         "comment" => comments.push(child),
                         _ => {
-                            write!(self.output, " ")?;
-                            self.fmt_term(child, comments, false)?;
+                            if new_line {
+                                self.new_indented_line(indent_level + 1)?;
+                            } else {
+                                write!(self.output, " ")?;
+                            }
+                            self.fmt_term(child, comments, false, indent_level + 1)?;
                         }
                     }
                 }
-                write!(self.output, " )")?;
+                if new_line {
+                    self.new_indented_line(indent_level)?;
+                } else {
+                    write!(self.output, " ")?;
+                }
+                write!(self.output, ")")?;
             }
             "literal" => {
                 let mut value = String::new();

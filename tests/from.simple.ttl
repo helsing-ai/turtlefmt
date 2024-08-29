@@ -6,14 +6,14 @@ BASE  # Base
     <http://example.org/test.ttl>
 
 # Plain
-# Plain 2
+#Plain 2
 
-# Plain 3
+#  Plain 3
 
 <s> a ex:Foo ;
     <p> <http://example.com/o\u00E9> , ex:\-v\-\_v\.\. , "foo\u00E9\t\n\r'\"\u0022" , 'bar\U000000E9\'"' , "bar"@en-US , "test"^^<http://example.com/dt> , ( +01 +1.0 1.0e0 ) . # Foo
 # Comment
-[ ex:p ex:o , ex:o2 ; ex:p2 ex:o3 ] rdf:type ex:o4 . # Bar
+[ ex:p ex:o , ex:o2 ; ex:p3 ex:o4 ; ex:p2 ex:o3 ; ex:p4 [ ex:p5 ex:o5 ] ] rdf:type ex:o6 . # Bar
 
 
 # Literal normalization
@@ -24,3 +24,5 @@ BASE  # Base
 <s> <p> '''foo'"bar''' .
 
 <s> <p> "true"^^xsd:boolean , "false"^^<http://www.w3.org/2001/XMLSchema#boolean> , "+12"^^xsd:integer , "1.1"^^xsd:decimal  , "1.2e2"^^xsd:double .
+
+( <s> <s2> <s3> ) ex:p ex:o .

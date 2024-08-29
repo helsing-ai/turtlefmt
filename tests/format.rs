@@ -34,3 +34,25 @@ fn test_stable() {
         file
     );
 }
+
+#[test]
+fn test_format_default_inverted() {
+    let input = include_str!("from.simple.ttl");
+    let expected = include_str!("to.simple.default_inverted.ttl");
+    let format_options = FormatOptions {
+        indentation: 2,
+        align_prefix_iris: true,
+        unify_comment_indents: false,
+        sort_subjects: true,
+        sort_predicates: true,
+        sort_objects: true,
+        subject_dot_on_new_line: true,
+        first_predicate_on_new_line: true,
+        first_object_on_new_line: true,
+        single_object_on_new_line: true,
+        objects_on_separate_lines: true,
+        collection_item_on_new_line: true,
+        blank_node_predicates_on_separate_lines: true,
+    };
+    assert_eq!(format_turtle(input, &format_options).unwrap(), expected);
+}

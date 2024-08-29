@@ -1,0 +1,84 @@
+@base <http://example.com/> . # test
+@prefix ex:  </> . # Prefix
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@base <http://example.org/test.ttl> . # Base
+
+# Plain
+#Plain 2
+
+#  Plain 3
+
+
+# Foo
+# Comment
+# Bar
+
+
+# Literal normalization
+
+(
+  <s>
+  <s2>
+  <s3>
+)
+  ex:p
+    ex:o ;
+  .
+
+<s>
+  <p>
+    "bar"@en-US ,
+    "fooé\t\n\r'\"\"" ,
+    "test"^^<http://example.com/dt> ,
+    "baré'\"" ,
+    (
+      +01
+      +1.0
+      1.0e0
+    ) ,
+    ex:\-v-_v.\. ,
+    <http://example.com/oé> ;
+  a
+    ex:Foo ;
+  .
+
+<s>
+  <p>
+    """ foo
+    bar"
+	baz""\"
+\"""" ;
+  .
+
+<s>
+  <p>
+    """foo'"bar""" ;
+  .
+
+<s>
+  <p>
+    +12 ,
+    1.1 ,
+    1.2e2 ,
+    false ,
+    true ;
+  .
+
+[
+  ex:p
+    ex:o ,
+    ex:o2 ;
+  ex:p2
+    ex:o3 ;
+  ex:p3
+    ex:o4 ;
+  ex:p4
+    [
+      ex:p5
+        ex:o5 ;
+    ] ;
+]
+  a
+    ex:o6 ;
+  .

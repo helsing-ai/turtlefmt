@@ -13,7 +13,7 @@
     <p> <http://example.com/oé> , ex:\-v-_v.\. , "fooé\t\n\r'\"\"" , "baré'\"" , "bar"@en-US , "test"^^<http://example.com/dt> , ( +01 +1.0 1.0e0 ) . # Foo
 
 # Comment
-[ ex:p ex:o , ex:o2 ; ex:p2 ex:o3 ] a ex:o4 . # Bar
+[ ex:p ex:o , ex:o2 ; ex:p3 ex:o4 ; ex:p2 ex:o3 ; ex:p4 [ ex:p5 ex:o5 ] ] a ex:o6 . # Bar
 
 
 # Literal normalization
@@ -25,3 +25,5 @@
 <s> <p> """foo'"bar""" .
 
 <s> <p> true , false , +12 , 1.1 , 1.2e2 .
+
+( <s> <s2> <s3> ) ex:p ex:o .

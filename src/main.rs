@@ -74,6 +74,8 @@ impl From<&Args> for FormatOptions {
                 first_object_on_new_line: true,
                 single_object_on_new_line: false,
                 objects_on_separate_lines: true,
+                collection_item_on_new_line: true,
+                blank_node_predicates_on_separate_lines: true,
             }
         } else {
             FormatOptions {
