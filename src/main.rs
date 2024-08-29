@@ -38,7 +38,7 @@ struct Args {
     indentation: usize,
     /// Enables aligning prefix IRIs.
     /// The default is, to use a single space after the ':'.
-    #[arg(long, default_value = "false")]
+    #[arg(long)]
     align_prefix_iris: bool,
     /// Whether to apply formatting options that try to minimize diffs
     /// between different versions of the same file.
@@ -53,7 +53,7 @@ struct Args {
     ///       We thus recommend to only use this
     ///       if you are not using comments,
     ///       or if you convert the comments into RDF triples.
-    #[arg(long, default_value = "false")]
+    #[arg(long)]
     diff_optimized: bool,
 }
 
