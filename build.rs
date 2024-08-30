@@ -31,8 +31,15 @@ fn main() {
     .unwrap();
 
     // We convert the TreeSitter grammar to C
-    tree_sitter_cli::generate::generate_parser_in_directory(&build_path, None, 14, false, None)
-        .unwrap();
+    tree_sitter_cli::generate::generate_parser_in_directory(
+        &build_path,
+        None,
+        14,
+        false,
+        None,
+        None,
+    )
+    .unwrap();
 
     // We build the C code
     let src_path = build_path.join("src");

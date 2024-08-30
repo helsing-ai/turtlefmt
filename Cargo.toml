@@ -8,20 +8,20 @@ license = "Apache-2.0"
 name = "turtlefmt"
 readme = "README.md"
 repository = "https://github.com/helsing-ai/turtlefmt"
-rust-version = "1.70.0"
-version = "0.1.1"
+rust-version = "1.75.0"
+version = "0.1.2-dev"
 
 [dependencies]
-anyhow = "1.0.79"
-clap = { version = "4", features = ["derive"] }
-diffy = "0.3.0"
-tree-sitter = "0.20.10"
+anyhow = "1.0.86"
+clap = { version = "4.5.16", features = ["derive"] }
+diffy = "0.4.0"
+tree-sitter = "0.23.0"
 
 [dev-dependencies]
-reqwest = { version = "0.11.23", features = ["blocking"] }
+reqwest = { version = "0.12.7", features = ["blocking"] }
 oxigraph = "0.3.22" # TODO: use only oxrdf and the parsers
-tree-sitter-cli = "0.20.8"
+tree-sitter-cli = "0.23.0"
 
 [build-dependencies]
-cc = "1.0.83"
-tree-sitter-cli = "0.20.8"
+cc = "1.1.15"
+tree-sitter-cli = "0.23.0"

@@ -39,7 +39,7 @@ fn get_tree_sitter_turtle() -> Language {
 
 pub fn format_turtle(original: &str, options: &FormatOptions) -> Result<String> {
     let mut parser = tree_sitter::Parser::new();
-    parser.set_language(get_tree_sitter_turtle())?;
+    parser.set_language(&get_tree_sitter_turtle())?;
     let tree = parser.parse(original.as_bytes(), None).unwrap();
 
     let mut formatted = String::new();
@@ -739,16 +739,29 @@ enum RootContext {
 mod tests {
     use super::*;
     use std::path::Path;
+    use tree_sitter_cli::test::TestOptions;
 
     #[test]
     fn tree_sitter() -> Result<()> {
+        let language = get_tree_sitter_turtle();
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&language)?;
         tree_sitter_cli::test::run_tests_at_path(
-            get_tree_sitter_turtle(),
-            &Path::new("tree-sitter").join("corpus"),
-            false,
-            false,
-            None,
-            false,
+            &mut parser,
+            &mut TestOptions {
+                path: Path::new("tree-sitter").join("corpus"),
+                debug: false,
+                debug_graph: false,
+                filter: None,
+                include: None,
+                exclude: None,
+                update: false,
+                open_log: false,
+                languages: [("turtle", &language)].into_iter().collect(),
+                color: false,
+                test_num: 0,
+                show_fields: false,
+            },
         )
     }
 }
