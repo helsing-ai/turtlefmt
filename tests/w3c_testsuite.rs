@@ -15,9 +15,11 @@
 */
 
 use anyhow::{bail, Context, Result};
-use oxigraph::io::{GraphFormat, GraphParser};
-use oxigraph::model::vocab::rdf;
-use oxigraph::model::{Graph, NamedNodeRef, SubjectRef, TermRef};
+use oxrdf::dataset::GraphView;
+use oxrdf::graph::CanonicalizationAlgorithm;
+use oxrdf::vocab::rdf;
+use oxrdf::{Dataset, GraphNameRef, NamedNodeRef, SubjectRef, TermRef};
+use oxrdfio::{RdfFormat, RdfParser};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::path::Path;
@@ -39,15 +41,15 @@ fn get_remote_file(url: &str) -> Result<String> {
     Ok(content)
 }
 
-fn parse_turtle(url: &str, data: &str) -> Result<Graph> {
-    GraphParser::from_format(GraphFormat::Turtle)
+fn parse_turtle(url: &str, data: &str) -> Result<Dataset> {
+    RdfParser::from_format(RdfFormat::Turtle)
         .with_base_iri(url)?
-        .read_triples(data.as_bytes())?
-        .collect::<std::result::Result<_, _>>()
+        .parse_read(data.as_bytes())
+        .collect::<core::result::Result<_, _>>()
         .with_context(|| format!("Error while parsing:\n{data}"))
 }
 
-fn run_test(test: SubjectRef<'_>, manifest: &Graph) -> Result<()> {
+fn run_test(test: SubjectRef<'_>, manifest: &GraphView<'_>) -> Result<()> {
     let Some(TermRef::NamedNode(test_type)) =
         manifest.object_for_subject_predicate(test, rdf::TYPE)
     else {
@@ -68,9 +70,9 @@ fn run_test(test: SubjectRef<'_>, manifest: &Graph) -> Result<()> {
         | "http://www.w3.org/ns/rdftest#TestTurtlePositiveSyntax" => {
             let formatted = formatted_result?;
             let mut original_graph = parse_turtle(input_url.as_str(), &original)?;
-            original_graph.canonicalize();
+            original_graph.canonicalize(CanonicalizationAlgorithm::Unstable);
             let mut formatted_graph = parse_turtle(input_url.as_str(), &formatted)?;
-            formatted_graph.canonicalize();
+            formatted_graph.canonicalize(CanonicalizationAlgorithm::Unstable);
             if original_graph != formatted_graph {
                 bail!("The formatted graph is not the same as the original graph.\nOriginal:\n{}\n\nFormatted:\n{}", original, formatted);
             }
@@ -101,10 +103,11 @@ fn run_test(test: SubjectRef<'_>, manifest: &Graph) -> Result<()> {
 fn test_w3c_files() -> Result<()> {
     fs::create_dir_all(CACHE)?; // We ensure cache existence
 
-    let manifest = parse_turtle(
+    let manifest_dataset = parse_turtle(
         "http://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/manifest.ttl",
         &get_remote_file("http://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/manifest.ttl")?,
     )?;
+    let manifest = manifest_dataset.graph(GraphNameRef::DefaultGraph);
     let errors = manifest
         .subjects_for_predicate_object(
             NamedNodeRef::new("http://www.w3.org/ns/rdftest#approval")?,
