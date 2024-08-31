@@ -14,6 +14,8 @@
     limitations under the License.
 */
 
+#[cfg(test)]
+use pretty_assertions::assert_eq;
 use turtlefmt::{format_turtle, FormatOptions};
 
 #[test]
