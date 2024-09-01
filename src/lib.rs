@@ -76,6 +76,12 @@ impl Default for FormatOptions {
     }
 }
 
+impl FormatOptions {
+    pub fn includes_sorting(&self) -> bool {
+        self.sort_subjects || self.sort_predicates || self.sort_objects
+    }
+}
+
 fn get_tree_sitter_turtle() -> Language {
     extern "C" {
         fn tree_sitter_turtle() -> Language;
@@ -83,7 +89,7 @@ fn get_tree_sitter_turtle() -> Language {
     unsafe { tree_sitter_turtle() }
 }
 
-pub fn format_turtle(original: &str, options: &FormatOptions) -> Result<String> {
+fn format_turtle_once(original: &str, options: &FormatOptions) -> Result<String> {
     let mut parser = tree_sitter::Parser::new();
     parser.set_language(&get_tree_sitter_turtle())?;
     let tree = parser.parse(original.as_bytes(), None).unwrap();
@@ -99,6 +105,59 @@ pub fn format_turtle(original: &str, options: &FormatOptions) -> Result<String> 
     Ok(formatted)
 }
 
+pub fn format_turtle(original: &str, options: &FormatOptions) -> Result<String> {
+    let mut result = format_turtle_once(original, options)?;
+    if options.includes_sorting() {
+        // This is necessary because the sorting of potentially reformatted terms
+        // (e.g. 'bar' -> "bar") might change sort order.
+        result = format_turtle_once(&result, options)?;
+    }
+    Ok(result)
+}
+
+/// The order of the variants in this enum
+/// determines the sorting order.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+enum NodeKindSortKey {
+    Comment,
+    A,
+    PrefixedName,
+    IriRef,
+    Collection,
+    BlankNodeAnonymous,
+    BlankNodeLabel,
+    BlankNodePropertyList,
+    Literal,
+    BooleanLiteral,
+    IntegerLiteral,
+    DecimalLiteral,
+    DoubleLiteral,
+    StringLiteral,
+    None,
+}
+
+impl NodeKindSortKey {
+    pub fn from_kind(kind: &str) -> Self {
+        match kind {
+            "comment" => Self::Comment,
+            "iriref" => Self::IriRef,
+            "prefixed_name" => Self::PrefixedName,
+            "a" => Self::A,
+            "anon" => Self::BlankNodeAnonymous,
+            "blank_node_label" => Self::BlankNodeLabel,
+            "blank_node_property_list" => Self::BlankNodePropertyList,
+            "collection" => Self::Collection,
+            "literal" => Self::Literal,
+            "string" => Self::StringLiteral,
+            "integer" => Self::IntegerLiteral,
+            "boolean" => Self::BooleanLiteral,
+            "decimal" => Self::DecimalLiteral,
+            "double" => Self::DoubleLiteral,
+            _ => Self::None,
+        }
+    }
+}
+
 struct TurtleFormatter<'a, W: Write> {
     file: &'a [u8],
     output: W,
@@ -112,26 +171,22 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         let mut context = RootContext::Start;
         let mut row = node.start_position().row;
         let mut prefix_buffer: Vec<(Node<'_>, Vec<Node<'_>>)> = Vec::new();
-        let children = if self.options.sort_subjects {
-            let mut sorted = vec![];
-            let mut to_be_sorted = vec![];
-            for child in Self::iter_children(node)? {
-                match child.kind() {
-                    "triples" => {
-                        to_be_sorted.push(child);
+
+        let children = self.iter_children_sorted(
+            node,
+            self.options.sort_subjects,
+            |n| n.kind() == "triples",
+            |n| {
+                for sn in n.children_by_field_name("subject", &mut n.walk()) {
+                    let sn_cont = sn.utf8_text(self.file).unwrap_or("");
+                    if sn_cont == "<" || sn_cont == ">" {
+                        continue;
                     }
-                    _ => sorted.push(child),
+                    return Some(sn);
                 }
-            }
-            to_be_sorted.sort_by_key(|n| {
-                n.child_by_field_name("subject")
-                    .map_or("", |n| n.utf8_text(self.file).unwrap_or(""))
-            });
-            sorted.append(&mut to_be_sorted);
-            sorted
-        } else {
-            Self::iter_children(node)?
-        };
+                None
+            },
+        )?;
         for child in children {
             match child.kind() {
                 "comment" => {
@@ -310,26 +365,12 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         debug_assert_eq!(node.kind(), "triples");
         let mut comments = Vec::new();
         let mut is_first_predicate_objects = true;
-        let children = if self.options.sort_predicates {
-            let mut sorted = vec![];
-            let mut to_be_sorted = vec![];
-            for child in Self::iter_children(node)? {
-                match child.kind() {
-                    "predicate_objects" => {
-                        to_be_sorted.push(child);
-                    }
-                    _ => sorted.push(child),
-                }
-            }
-            to_be_sorted.sort_by_key(|n| {
-                n.child_by_field_name("predicate")
-                    .map_or("", |n| n.utf8_text(self.file).unwrap_or(""))
-            });
-            sorted.append(&mut to_be_sorted);
-            sorted
-        } else {
-            Self::iter_children(node)?
-        };
+        let children = self.iter_children_sorted(
+            node,
+            self.options.sort_predicates,
+            |n| n.kind() == "predicate_objects",
+            |n| n.child_by_field_name("predicate"),
+        )?;
         for child in children {
             match child.kind() {
                 "comment" => comments.push(child),
@@ -380,30 +421,22 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
             .filter(|child| child.kind() != "comment")
             .count()
             - 1;
-        let children = if self.options.sort_objects && num_objects > 0 {
-            let unsorted = Self::iter_children(node)?;
-            let mut sorted = vec![];
-            let mut objects = vec![];
-            let mut seen_predicate = false;
-            for child in unsorted {
-                match child.kind() {
-                    "comment" => sorted.push(child),
-                    _ => {
-                        if seen_predicate {
-                            objects.push(child);
-                        } else {
-                            sorted.push(child);
-                            seen_predicate = true;
-                        }
-                    }
+        let mut seen_predicate = false;
+        let children = self.iter_children_sorted(
+            node,
+            self.options.sort_objects && num_objects > 0,
+            |n| {
+                if n.kind() == "comment" {
+                    return false;
                 }
-            }
-            objects.sort_by_key(|n| n.utf8_text(self.file).unwrap_or(""));
-            sorted.append(&mut objects);
-            sorted
-        } else {
-            Self::iter_children(node)?
-        };
+                if !seen_predicate {
+                    seen_predicate = true;
+                    return false;
+                };
+                seen_predicate
+            },
+            |n| Some(n),
+        )?;
         for child in children {
             match child.kind() {
                 "comment" => comments.push(child),
@@ -472,26 +505,12 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
             "blank_node_property_list" => {
                 let mut is_first_predicate_objects = true;
                 write!(self.output, "[")?;
-                let children = if self.options.sort_predicates {
-                    let mut sorted = vec![];
-                    let mut to_be_sorted = vec![];
-                    for child in Self::iter_children(node)? {
-                        match child.kind() {
-                            "predicate_objects" => {
-                                to_be_sorted.push(child);
-                            }
-                            _ => sorted.push(child),
-                        }
-                    }
-                    to_be_sorted.sort_by_key(|n| {
-                        n.child_by_field_name("predicate")
-                            .map_or("", |n| n.utf8_text(self.file).unwrap_or(""))
-                    });
-                    sorted.append(&mut to_be_sorted);
-                    sorted
-                } else {
-                    Self::iter_children(node)?
-                };
+                let children = self.iter_children_sorted(
+                    node,
+                    self.options.sort_predicates,
+                    |n| n.kind() == "predicate_objects",
+                    |n| n.child_by_field_name("predicate"),
+                )?;
                 for child in children {
                     match child.kind() {
                         "comment" => comments.push(child),
@@ -819,6 +838,43 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                 }
             })
             .collect()
+    }
+
+    fn iter_children_sorted<
+        'i,
+        CS: FnMut(Node<'_>) -> bool,
+        KS: Fn(Node<'_>) -> Option<Node<'_>>,
+    >(
+        &mut self,
+        node: Node<'i>,
+        sort: bool,
+        mut is_to_be_sorted: CS,
+        extract_sort_key_sub_node: KS,
+    ) -> Result<Vec<Node<'i>>> {
+        let children = if sort {
+            let mut sorted = vec![];
+            let mut to_be_sorted = vec![];
+            for child in Self::iter_children(node)? {
+                if is_to_be_sorted(child) {
+                    to_be_sorted.push(child);
+                } else {
+                    sorted.push(child)
+                }
+            }
+            to_be_sorted.sort_by_key(|n| {
+                extract_sort_key_sub_node(*n).map_or((NodeKindSortKey::None, ""), |n| {
+                    (
+                        NodeKindSortKey::from_kind(n.kind()),
+                        n.utf8_text(self.file).unwrap_or(""),
+                    )
+                })
+            });
+            sorted.append(&mut to_be_sorted);
+            sorted
+        } else {
+            Self::iter_children(node)?
+        };
+        Ok(children)
     }
 
     fn fmt_err(node: Node<'_>) -> Error {

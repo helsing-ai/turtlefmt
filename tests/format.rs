@@ -18,6 +18,24 @@
 use pretty_assertions::assert_eq;
 use turtlefmt::{format_turtle, FormatOptions};
 
+fn fmt_opts_inverted() -> FormatOptions {
+    FormatOptions {
+        indentation: 2,
+        align_prefix_iris: true,
+        unify_comment_indents: false,
+        sort_subjects: true,
+        sort_predicates: true,
+        sort_objects: true,
+        subject_dot_on_new_line: true,
+        first_predicate_on_new_line: true,
+        first_object_on_new_line: true,
+        single_object_on_new_line: true,
+        objects_on_separate_lines: true,
+        collection_item_on_new_line: true,
+        blank_node_predicates_on_separate_lines: true,
+    }
+}
+
 #[test]
 fn test_format() {
     let input = include_str!("from.simple.ttl");
@@ -41,20 +59,13 @@ fn test_stable() {
 fn test_format_default_inverted() {
     let input = include_str!("from.simple.ttl");
     let expected = include_str!("to.simple.default_inverted.ttl");
-    let format_options = FormatOptions {
-        indentation: 2,
-        align_prefix_iris: true,
-        unify_comment_indents: false,
-        sort_subjects: true,
-        sort_predicates: true,
-        sort_objects: true,
-        subject_dot_on_new_line: true,
-        first_predicate_on_new_line: true,
-        first_object_on_new_line: true,
-        single_object_on_new_line: true,
-        objects_on_separate_lines: true,
-        collection_item_on_new_line: true,
-        blank_node_predicates_on_separate_lines: true,
-    };
+    let format_options = fmt_opts_inverted();
     assert_eq!(format_turtle(input, &format_options).unwrap(), expected);
+}
+
+#[test]
+fn test_stable_default_inverted() {
+    let file = include_str!("to.simple.default_inverted.ttl");
+    let format_options = fmt_opts_inverted();
+    assert_eq!(format_turtle(file, &format_options).unwrap(), file);
 }

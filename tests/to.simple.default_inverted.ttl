@@ -16,31 +16,21 @@
 
 
 # Literal normalization
-
-(
-  <s>
-  <s2>
-  <s3>
-)
-  ex:p
-    ex:o ;
-  .
-
 <s>
+  a
+    ex:Foo ;
   <p>
-    "bar"@en-US ,
-    "fooé\t\n\r'\"\"" ,
-    "test"^^<http://example.com/dt> ,
-    "baré'\"" ,
+    ex:\-v-_v.\. ,
+    <http://example.com/oé> ,
     (
       +01
       +1.0
       1.0e0
     ) ,
-    ex:\-v-_v.\. ,
-    <http://example.com/oé> ;
-  a
-    ex:Foo ;
+    "bar"@en-US ,
+    "baré'\"" ,
+    "fooé\t\n\r'\"\"" ,
+    "test"^^<http://example.com/dt> ;
   .
 
 <s>
@@ -58,11 +48,20 @@
 
 <s>
   <p>
+    false ,
+    true ,
     +12 ,
     1.1 ,
-    1.2e2 ,
-    false ,
-    true ;
+    1.2e2 ;
+  .
+
+(
+  <s>
+  <s2>
+  <s3>
+)
+  ex:p
+    ex:o ;
   .
 
 [
