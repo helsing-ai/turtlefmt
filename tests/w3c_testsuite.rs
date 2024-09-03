@@ -15,11 +15,10 @@
 */
 
 use anyhow::{bail, Context, Result};
-use oxrdf::dataset::GraphView;
 use oxrdf::graph::CanonicalizationAlgorithm;
 use oxrdf::vocab::rdf;
-use oxrdf::{Dataset, GraphNameRef, NamedNodeRef, SubjectRef, TermRef};
-use oxrdfio::{RdfFormat, RdfParser};
+use oxrdf::{Graph, NamedNodeRef, SubjectRef, TermRef};
+use oxttl::TurtleParser;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::path::Path;
@@ -41,15 +40,15 @@ fn get_remote_file(url: &str) -> Result<String> {
     Ok(content)
 }
 
-fn parse_turtle(url: &str, data: &str) -> Result<Dataset> {
-    RdfParser::from_format(RdfFormat::Turtle)
+fn parse_turtle(url: &str, data: &str) -> Result<Graph> {
+    TurtleParser::new()
         .with_base_iri(url)?
         .parse_read(data.as_bytes())
         .collect::<core::result::Result<_, _>>()
         .with_context(|| format!("Error while parsing:\n{data}"))
 }
 
-fn run_test(test: SubjectRef<'_>, manifest: &GraphView<'_>) -> Result<()> {
+fn run_test(test: SubjectRef<'_>, manifest: &Graph) -> Result<()> {
     let Some(TermRef::NamedNode(test_type)) =
         manifest.object_for_subject_predicate(test, rdf::TYPE)
     else {
@@ -103,11 +102,10 @@ fn run_test(test: SubjectRef<'_>, manifest: &GraphView<'_>) -> Result<()> {
 fn test_w3c_files() -> Result<()> {
     fs::create_dir_all(CACHE)?; // We ensure cache existence
 
-    let manifest_dataset = parse_turtle(
+    let manifest = parse_turtle(
         "http://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/manifest.ttl",
         &get_remote_file("http://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/manifest.ttl")?,
     )?;
-    let manifest = manifest_dataset.graph(GraphNameRef::DefaultGraph);
     let errors = manifest
         .subjects_for_predicate_object(
             NamedNodeRef::new("http://www.w3.org/ns/rdftest#approval")?,
