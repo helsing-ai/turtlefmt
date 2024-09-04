@@ -15,9 +15,10 @@
 */
 
 use anyhow::{bail, Context, Result};
-use oxigraph::io::{GraphFormat, GraphParser};
-use oxigraph::model::vocab::rdf;
-use oxigraph::model::{Graph, NamedNodeRef, SubjectRef, TermRef};
+use oxrdf::graph::CanonicalizationAlgorithm;
+use oxrdf::vocab::rdf;
+use oxrdf::{Graph, NamedNodeRef, SubjectRef, TermRef};
+use oxttl::TurtleParser;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::path::Path;
@@ -40,10 +41,10 @@ fn get_remote_file(url: &str) -> Result<String> {
 }
 
 fn parse_turtle(url: &str, data: &str) -> Result<Graph> {
-    GraphParser::from_format(GraphFormat::Turtle)
+    TurtleParser::new()
         .with_base_iri(url)?
-        .read_triples(data.as_bytes())?
-        .collect::<std::result::Result<_, _>>()
+        .parse_read(data.as_bytes())
+        .collect::<core::result::Result<_, _>>()
         .with_context(|| format!("Error while parsing:\n{data}"))
 }
 
@@ -68,9 +69,9 @@ fn run_test(test: SubjectRef<'_>, manifest: &Graph) -> Result<()> {
         | "http://www.w3.org/ns/rdftest#TestTurtlePositiveSyntax" => {
             let formatted = formatted_result?;
             let mut original_graph = parse_turtle(input_url.as_str(), &original)?;
-            original_graph.canonicalize();
+            original_graph.canonicalize(CanonicalizationAlgorithm::Unstable);
             let mut formatted_graph = parse_turtle(input_url.as_str(), &formatted)?;
-            formatted_graph.canonicalize();
+            formatted_graph.canonicalize(CanonicalizationAlgorithm::Unstable);
             if original_graph != formatted_graph {
                 bail!("The formatted graph is not the same as the original graph.\nOriginal:\n{}\n\nFormatted:\n{}", original, formatted);
             }
