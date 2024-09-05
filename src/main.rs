@@ -60,13 +60,8 @@ impl From<&Args> for FormatOptions {
             FormatOptions {
                 indentation,
                 sort_terms: true,
-                subject_dot_on_new_line: true,
-                first_predicate_on_new_line: true,
-                first_object_on_new_line: true,
+                new_lines_for_easy_diff: true,
                 single_object_on_new_line: false,
-                objects_on_separate_lines: true,
-                collection_item_on_new_line: true,
-                blank_node_predicates_on_separate_lines: true,
             }
         } else {
             FormatOptions {

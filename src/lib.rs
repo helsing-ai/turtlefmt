@@ -26,25 +26,18 @@ pub struct FormatOptions {
     /// Wether to sort subjects, predicates and objects,
     /// including within blank-nodes
     pub sort_terms: bool,
-    /// Wether a subjects finalizing dot should be on a new line,
-    /// or on the same line as the last object
-    pub subject_dot_on_new_line: bool,
-    /// Whether the first predicate of a subject should be on a new line,
-    /// or on the same line as the subject
-    pub first_predicate_on_new_line: bool,
-    /// Wether to move the first object within one subject-predicate pair onto a new line,
-    /// or on the same line as the predicate
-    pub first_object_on_new_line: bool,
-    /// Wether to move the a single object (within one subject-predicate pair) onto a new line,
-    /// or to keep it on the same line as the predicate
+    /// Enables inserting new-lines before the following:
+    /// - a subjects finalizing dot
+    /// - the first predicate of a subject
+    /// - the first object within one subject-predicate pair
+    /// - each objects within one subject-predicate pair
+    /// - each collection item;
+    ///   see <https://www.w3.org/TR/rdf12-turtle/#collections>
+    /// - each predicate within a blank-node
+    pub new_lines_for_easy_diff: bool,
+    /// Wether to move a single/lone object (within one subject-predicate pair) onto a new line,
+    /// or to keep it on the same line as the predicate.
     pub single_object_on_new_line: bool,
-    /// Wether to put each objects within one subject-predicate pair on a separate line
-    pub objects_on_separate_lines: bool,
-    /// Wether to put each collection item on a separate line.
-    /// See <https://www.w3.org/TR/rdf12-turtle/#collections>.
-    pub collection_item_on_new_line: bool,
-    /// Wether to put each predicate within a blank-node on a separate line.
-    pub blank_node_predicates_on_separate_lines: bool,
 }
 
 impl Default for FormatOptions {
@@ -52,13 +45,8 @@ impl Default for FormatOptions {
         Self {
             indentation: 4,
             sort_terms: false,
-            subject_dot_on_new_line: false,
-            first_predicate_on_new_line: false,
-            first_object_on_new_line: false,
+            new_lines_for_easy_diff: false,
             single_object_on_new_line: false,
-            objects_on_separate_lines: false,
-            blank_node_predicates_on_separate_lines: false,
-            collection_item_on_new_line: false,
         }
     }
 }
@@ -334,11 +322,11 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                 "comment" => comments.push(child),
                 "predicate_objects" => {
                     let new_line = if is_first_predicate_objects {
-                        if !self.options.first_predicate_on_new_line {
+                        if !self.options.new_lines_for_easy_diff {
                             write!(self.output, " ")?;
                         }
                         is_first_predicate_objects = false;
-                        self.options.first_predicate_on_new_line
+                        self.options.new_lines_for_easy_diff
                     } else {
                         write!(self.output, " ;")?;
                         true
@@ -355,7 +343,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                 }
             }
         }
-        if self.options.subject_dot_on_new_line {
+        if self.options.new_lines_for_easy_diff {
             write!(self.output, " ;")?;
             self.new_indented_line(1)?;
             write!(self.output, ".")?;
@@ -405,14 +393,14 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                     } else {
                         if is_first_object {
                             if self.options.single_object_on_new_line
-                                || (num_objects > 1 && self.options.first_object_on_new_line)
+                                || (num_objects > 1 && self.options.new_lines_for_easy_diff)
                             {
                                 self.new_indented_line(indent_level + 1)?;
                             } else {
                                 write!(self.output, " ")?;
                             }
                             is_first_object = false;
-                        } else if self.options.objects_on_separate_lines {
+                        } else if self.options.new_lines_for_easy_diff {
                             write!(self.output, " ,")?;
                             self.new_indented_line(indent_level + 1)?;
                         } else {
@@ -476,11 +464,11 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                             let new_line =
                                 if is_first_predicate_objects {
                                     is_first_predicate_objects = false;
-                                    self.options.first_predicate_on_new_line
+                                    self.options.new_lines_for_easy_diff
                                 } else {
                                     write!(self.output, " ;")?;
                                     true
-                                } && self.options.blank_node_predicates_on_separate_lines;
+                                } && self.options.new_lines_for_easy_diff;
                             if new_line {
                                 self.fmt_comments(comments.drain(0..), true)?;
                                 self.new_indented_line(indent_level + 1)?;
@@ -491,7 +479,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                         }
                     }
                 }
-                if self.options.blank_node_predicates_on_separate_lines {
+                if self.options.new_lines_for_easy_diff {
                     write!(self.output, " ;")?;
                     self.new_indented_line(indent_level)?;
                 } else {
@@ -501,7 +489,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
             }
             "collection" => {
                 write!(self.output, "(")?;
-                let new_line = self.options.collection_item_on_new_line;
+                let new_line = self.options.new_lines_for_easy_diff;
                 // let new_line = true;
                 for child in Self::iter_children(node)? {
                     match child.kind() {
