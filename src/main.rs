@@ -36,10 +36,6 @@ struct Args {
     /// Number of spaces per level of indentation
     #[arg(long, default_value = "4")]
     indentation: usize,
-    /// Enables aligning prefix IRIs.
-    /// The default is, to use a single space after the ':'.
-    #[arg(long)]
-    align_prefix_iris: bool,
     /// Whether to apply formatting options that try to minimize diffs
     /// between different versions of the same file.
     /// This additionally sorts subjects, predicates and objects,
@@ -60,11 +56,9 @@ struct Args {
 impl From<&Args> for FormatOptions {
     fn from(args: &Args) -> Self {
         let indentation = args.indentation;
-        let align_prefix_iris = args.align_prefix_iris;
         if args.diff_optimized {
             FormatOptions {
                 indentation,
-                align_prefix_iris,
                 unify_comment_indents: false,
                 sort_terms: true,
                 subject_dot_on_new_line: true,

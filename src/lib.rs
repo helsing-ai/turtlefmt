@@ -23,9 +23,6 @@ use tree_sitter::{Language, Node};
 pub struct FormatOptions {
     /// Number of spaces used for one level of indentation
     pub indentation: usize,
-    /// Wether to align prefix IRIs,
-    /// or use a single space after the ':'.
-    pub align_prefix_iris: bool,
     /// Wether to re-indent comments,
     /// ensuring they all have exactly one space after the '#'.
     pub unify_comment_indents: bool,
@@ -57,7 +54,6 @@ impl Default for FormatOptions {
     fn default() -> Self {
         Self {
             indentation: 4,
-            align_prefix_iris: false,
             unify_comment_indents: true,
             sort_terms: false,
             subject_dot_on_new_line: false,
@@ -267,36 +263,12 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
             node.child_by_field_name("label")
                 .map_or("", |n| n.utf8_text(self.file).unwrap_or(""))
         });
-        let tab_length = if self.options.align_prefix_iris {
-            nodes
-                .iter()
-                .map(|(node, _)| {
-                    let mut prefix_len = Ok(0);
-                    for child in Self::iter_children(*node)? {
-                        if child.kind() == "pn_prefix" {
-                            prefix_len = child
-                                .utf8_text(self.file)
-                                .map_err(|_| {
-                                    anyhow!("Failed to convert prefix namespace ID to UTF-8")
-                                })
-                                .map(str::len);
-                        }
-                    }
-                    prefix_len
-                })
-                .collect::<Result<Vec<usize>, _>>()?
-                .into_iter()
-                .max()
-                .unwrap_or(0)
-        } else {
-            0
-        };
         for (i, (node, comments)) in nodes.iter().enumerate() {
             if i > 0 {
                 writeln!(self.output)?;
             }
             debug_assert_eq!(node.kind(), "prefix");
-            self.fmt_prefix(*node, tab_length)?;
+            self.fmt_prefix(*node)?;
             self.fmt_comments(comments.iter().copied(), true)?;
         }
         nodes.clear();
@@ -321,7 +293,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         self.fmt_comments(comments, true)
     }
 
-    fn fmt_prefix(&mut self, node: Node<'_>, tab_length: usize) -> Result<()> {
+    fn fmt_prefix(&mut self, node: Node<'_>) -> Result<()> {
         debug_assert_eq!(node.kind(), "prefix");
         let mut comments = Vec::new();
         let mut prefix = "";
@@ -333,12 +305,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                 }
                 "iriref" => {
                     let iri = self.extract_iriref(child)?;
-                    let padding = if self.options.align_prefix_iris {
-                        " ".repeat(tab_length - prefix.len())
-                    } else {
-                        "".to_string()
-                    };
-                    write!(self.output, "@prefix {prefix}: {padding}<{iri}>")?;
+                    write!(self.output, "@prefix {prefix}: <{iri}>")?;
                     self.prefixes.insert(prefix.to_string(), iri);
                 }
                 _ => bail!("Unexpected prefix child: {}", child.to_sexp()),
