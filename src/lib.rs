@@ -23,9 +23,6 @@ use tree_sitter::{Language, Node};
 pub struct FormatOptions {
     /// Number of spaces used for one level of indentation
     pub indentation: usize,
-    /// Wether to re-indent comments,
-    /// ensuring they all have exactly one space after the '#'.
-    pub unify_comment_indents: bool,
     /// Wether to sort subjects, predicates and objects,
     /// including within blank-nodes
     pub sort_terms: bool,
@@ -54,7 +51,6 @@ impl Default for FormatOptions {
     fn default() -> Self {
         Self {
             indentation: 4,
-            unify_comment_indents: true,
             sort_terms: false,
             subject_dot_on_new_line: false,
             first_predicate_on_new_line: false,
@@ -761,16 +757,10 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         nodes: impl IntoIterator<Item = Node<'b>>,
         inline: bool,
     ) -> Result<()> {
-        let unify_indent = self.options.unify_comment_indents;
         let comments = nodes
             .into_iter()
             .map(|node| {
-                let comment = &node.utf8_text(self.file)?[1..];
-                Ok(if unify_indent {
-                    comment.trim()
-                } else {
-                    comment.trim_end()
-                })
+                Ok(node.utf8_text(self.file)?[1..].trim_end())
             })
             .collect::<Result<Vec<_>>>()?;
         if !comments.is_empty() {
@@ -779,8 +769,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
             }
             write!(
                 self.output,
-                "#{}{}",
-                if unify_indent { " " } else { "" },
+                "#{}",
                 comments.join(" ")
             )?;
         }

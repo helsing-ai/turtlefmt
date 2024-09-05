@@ -5,9 +5,9 @@
 @base <http://example.org/test.ttl> . # Base
 
 # Plain
-# Plain 2
+#Plain 2
 
-# Plain 3
+#  Plain 3
 
 <s> a ex:Foo ;
     <p> <http://example.com/oé> , ex:\-v-_v.\. , "fooé\t\n\r'\"\"" , "baré'\"" , "bar"@en-US , "test"^^<http://example.com/dt> , ( +01 +1.0 1.0e0 ) . # Foo

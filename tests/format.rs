@@ -21,7 +21,6 @@ use turtlefmt::{format_turtle, FormatOptions};
 fn fmt_opts_inverted() -> FormatOptions {
     FormatOptions {
         indentation: 2,
-        unify_comment_indents: false,
         sort_terms: true,
         subject_dot_on_new_line: true,
         first_predicate_on_new_line: true,
