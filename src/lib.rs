@@ -29,12 +29,9 @@ pub struct FormatOptions {
     /// Wether to re-indent comments,
     /// ensuring they all have exactly one space after the '#'.
     pub unify_comment_indents: bool,
-    /// Wether to sort subjects
-    pub sort_subjects: bool,
-    /// Wether to sort predicates within a subject
-    pub sort_predicates: bool,
-    /// Wether to sort objects withing one subject-predicate pair
-    pub sort_objects: bool,
+    /// Wether to sort subjects, predicates and objects,
+    /// including within blank-nodes
+    pub sort_terms: bool,
     /// Wether a subjects finalizing dot should be on a new line,
     /// or on the same line as the last object
     pub subject_dot_on_new_line: bool,
@@ -62,9 +59,7 @@ impl Default for FormatOptions {
             indentation: 4,
             align_prefix_iris: false,
             unify_comment_indents: true,
-            sort_subjects: false,
-            sort_predicates: false,
-            sort_objects: false,
+            sort_terms: false,
             subject_dot_on_new_line: false,
             first_predicate_on_new_line: false,
             first_object_on_new_line: false,
@@ -78,7 +73,7 @@ impl Default for FormatOptions {
 
 impl FormatOptions {
     pub fn includes_sorting(&self) -> bool {
-        self.sort_subjects || self.sort_predicates || self.sort_objects
+        self.sort_terms
     }
 }
 
@@ -174,7 +169,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
 
         let children = self.iter_children_sorted(
             node,
-            self.options.sort_subjects,
+            self.options.sort_terms,
             |n| n.kind() == "triples",
             |n| {
                 for sn in n.children_by_field_name("subject", &mut n.walk()) {
@@ -367,7 +362,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         let mut is_first_predicate_objects = true;
         let children = self.iter_children_sorted(
             node,
-            self.options.sort_predicates,
+            self.options.sort_terms,
             |n| n.kind() == "predicate_objects",
             |n| n.child_by_field_name("predicate"),
         )?;
@@ -424,7 +419,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         let mut seen_predicate = false;
         let children = self.iter_children_sorted(
             node,
-            self.options.sort_objects && num_objects > 0,
+            self.options.sort_terms && num_objects > 0,
             |n| {
                 if n.kind() == "comment" {
                     return false;
@@ -507,7 +502,7 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                 write!(self.output, "[")?;
                 let children = self.iter_children_sorted(
                     node,
-                    self.options.sort_predicates,
+                    self.options.sort_terms,
                     |n| n.kind() == "predicate_objects",
                     |n| n.child_by_field_name("predicate"),
                 )?;
