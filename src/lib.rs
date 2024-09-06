@@ -38,6 +38,9 @@ pub struct FormatOptions {
     /// Wether to move a single/lone object (within one subject-predicate pair) onto a new line,
     /// or to keep it on the same line as the predicate.
     pub single_object_on_new_line: bool,
+    /// Wether to force-write the output,
+    /// even if potential issues with the formatting have been detected.
+    pub force: bool,
 }
 
 impl Default for FormatOptions {
@@ -47,6 +50,7 @@ impl Default for FormatOptions {
             sort_terms: false,
             new_lines_for_easy_diff: false,
             single_object_on_new_line: false,
+            force: false,
         }
     }
 }
@@ -75,6 +79,7 @@ fn format_turtle_once(original: &str, options: &FormatOptions) -> Result<String>
         output: &mut formatted,
         options,
         prefixes: HashMap::new(),
+        seen_comments: false,
     }
     .fmt_doc(tree.root_node())?;
     Ok(formatted)
@@ -138,6 +143,7 @@ struct TurtleFormatter<'a, W: Write> {
     output: W,
     options: &'a FormatOptions,
     prefixes: HashMap<String, String>,
+    seen_comments: bool,
 }
 
 impl<'a, W: Write> TurtleFormatter<'a, W> {
@@ -226,6 +232,29 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
         }
         self.fmt_possible_prefixes(&mut prefix_buffer, &mut context)?;
         writeln!(self.output)?;
+        if self.options.includes_sorting() && self.seen_comments {
+            eprintln!(
+                "WARNING: You have chosen to sort terms \
+while your source contains comments. \
+This is not properly supported by this tool, \
+so your comments will almost certainly end-up in the wrong place."
+            );
+            if self.options.force {
+                eprintln!(
+                    "WARNING: ... as you have chosen to force write (--force), \
+the formatting result has been written to file anyway."
+                );
+            } else {
+                eprintln!(
+                    "ERROR: ... as you have not chosen to force write (--force), \
+the formatting result has not been written to file."
+                );
+                bail!(
+                    "Not allowed to sort terms while comments are present \
+without forced writing (--force)"
+                );
+            }
+        }
         Ok(())
     }
 
@@ -749,6 +778,9 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
             .map(|node| Ok(node.utf8_text(self.file)?[1..].trim_end()))
             .collect::<Result<Vec<_>>>()?;
         if !comments.is_empty() {
+            if self.options.includes_sorting() {
+                self.seen_comments = true
+            }
             if inline {
                 write!(self.output, " ")?;
             }

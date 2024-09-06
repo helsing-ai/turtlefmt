@@ -51,21 +51,28 @@ struct Args {
     ///       or if you convert the comments into RDF triples.
     #[arg(long)]
     diff_optimized: bool,
+    /// Wether to force-write the output,
+    /// even if potential issues with the formatting have been detected.
+    #[arg(long)]
+    force: bool,
 }
 
 impl From<&Args> for FormatOptions {
     fn from(args: &Args) -> Self {
         let indentation = args.indentation;
+        let force = args.force;
         if args.diff_optimized {
             FormatOptions {
                 indentation,
                 sort_terms: true,
                 new_lines_for_easy_diff: true,
                 single_object_on_new_line: false,
+                force,
             }
         } else {
             FormatOptions {
                 indentation,
+                force,
                 ..Default::default()
             }
         }

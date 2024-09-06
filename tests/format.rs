@@ -24,6 +24,7 @@ fn fmt_opts_inverted() -> FormatOptions {
         sort_terms: true,
         new_lines_for_easy_diff: true,
         single_object_on_new_line: true,
+        force: true,
     }
 }
 
