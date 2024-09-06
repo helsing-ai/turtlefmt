@@ -461,14 +461,13 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
                     match child.kind() {
                         "comment" => comments.push(child),
                         _ => {
-                            let new_line =
-                                if is_first_predicate_objects {
-                                    is_first_predicate_objects = false;
-                                    self.options.new_lines_for_easy_diff
-                                } else {
-                                    write!(self.output, " ;")?;
-                                    true
-                                } && self.options.new_lines_for_easy_diff;
+                            let new_line = if is_first_predicate_objects {
+                                is_first_predicate_objects = false;
+                                self.options.new_lines_for_easy_diff
+                            } else {
+                                write!(self.output, " ;")?;
+                                true
+                            } && self.options.new_lines_for_easy_diff;
                             if new_line {
                                 self.fmt_comments(comments.drain(0..), true)?;
                                 self.new_indented_line(indent_level + 1)?;
@@ -747,19 +746,13 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
     ) -> Result<()> {
         let comments = nodes
             .into_iter()
-            .map(|node| {
-                Ok(node.utf8_text(self.file)?[1..].trim_end())
-            })
+            .map(|node| Ok(node.utf8_text(self.file)?[1..].trim_end()))
             .collect::<Result<Vec<_>>>()?;
         if !comments.is_empty() {
             if inline {
                 write!(self.output, " ")?;
             }
-            write!(
-                self.output,
-                "#{}",
-                comments.join(" ")
-            )?;
+            write!(self.output, "#{}", comments.join(" "))?;
         }
         Ok(())
     }
