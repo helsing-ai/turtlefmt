@@ -2,7 +2,6 @@
 @prefix ex: </> . # Prefix
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@base <http://example.org/test.ttl> . # Base
 
 # Plain
 #Plain 2
@@ -15,6 +14,8 @@
 # Comment
 [ ex:p ex:o , ex:o2 ; ex:p3 ex:o4 ; ex:p2 ex:o3 ; ex:p4 [ ex:p5 ex:o5 ] ] a ex:o6 . # Bar
 
+@base <http://example.org/test.ttl> . # Base
+@prefix ex: </new/> . # Prefix new
 
 # Literal normalization
 <s> <p> """ foo

@@ -772,6 +772,21 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
             .collect()
     }
 
+    fn sort_nodes<KS: Fn(Node<'_>) -> Option<Node<'_>>>(
+        &mut self,
+        to_be_sorted: &mut [Node<'_>],
+        extract_sort_key_sub_node: KS,
+    ) {
+        to_be_sorted.sort_by_key(|n| {
+            extract_sort_key_sub_node(*n).map_or((NodeKindSortKey::None, ""), |n| {
+                (
+                    NodeKindSortKey::from_kind(n.kind()),
+                    n.utf8_text(self.file).unwrap_or(""),
+                )
+            })
+        });
+    }
+
     fn iter_children_sorted<
         'i,
         CS: FnMut(Node<'_>) -> bool,
@@ -787,20 +802,18 @@ impl<'a, W: Write> TurtleFormatter<'a, W> {
             let mut sorted = vec![];
             let mut to_be_sorted = vec![];
             for child in Self::iter_children(node)? {
+                if child.kind() == "base" || child.kind() == "prefix" {
+                    self.sort_nodes(&mut to_be_sorted, &extract_sort_key_sub_node);
+                    sorted.append(&mut to_be_sorted);
+                    to_be_sorted.clear();
+                }
                 if is_to_be_sorted(child) {
                     to_be_sorted.push(child);
                 } else {
                     sorted.push(child)
                 }
             }
-            to_be_sorted.sort_by_key(|n| {
-                extract_sort_key_sub_node(*n).map_or((NodeKindSortKey::None, ""), |n| {
-                    (
-                        NodeKindSortKey::from_kind(n.kind()),
-                        n.utf8_text(self.file).unwrap_or(""),
-                    )
-                })
-            });
+            self.sort_nodes(&mut to_be_sorted, extract_sort_key_sub_node);
             sorted.append(&mut to_be_sorted);
             sorted
         } else {
