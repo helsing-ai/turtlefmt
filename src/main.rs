@@ -36,13 +36,52 @@ struct Args {
     /// Number of spaces per level of indentation
     #[arg(long, default_value = "4")]
     indentation: usize,
+    /// Whether to apply formatting options that try to minimize diffs
+    /// between different versions of the same file.
+    /// This additionally sorts subjects, predicates and objects,
+    /// and it puts each of those onto a new line.
+    ///
+    /// This might be useful if the file is stored on an SCM like git,
+    /// and you can ensure that this tool is applied before each commit.
+    ///
+    /// NOTE: This (because of how the sorting works)
+    ///       does not play well with comments;
+    ///       We thus recommend to only use this
+    ///       if you are not using comments,
+    ///       or if you convert the comments into RDF triples.
+    #[arg(long)]
+    diff_optimized: bool,
+    /// Whether to force-write the output,
+    /// even if potential issues with the formatting have been detected.
+    #[arg(long)]
+    force: bool,
+}
+
+impl From<&Args> for FormatOptions {
+    fn from(args: &Args) -> Self {
+        let indentation = args.indentation;
+        let force = args.force;
+        if args.diff_optimized {
+            FormatOptions {
+                indentation,
+                sort_terms: true,
+                new_lines_for_easy_diff: true,
+                single_object_on_new_line: false,
+                force,
+            }
+        } else {
+            FormatOptions {
+                indentation,
+                force,
+                ..Default::default()
+            }
+        }
+    }
 }
 
 fn main() -> Result<ExitCode> {
     let args = Args::parse();
-    let options = FormatOptions {
-        indentation: args.indentation,
-    };
+    let options = (&args).into();
     let mut exit_code = ExitCode::SUCCESS;
 
     let mut files = Vec::new();
