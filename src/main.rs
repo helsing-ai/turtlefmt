@@ -51,7 +51,7 @@ struct Args {
     ///       or if you convert the comments into RDF triples.
     #[arg(long)]
     diff_optimized: bool,
-    /// Wether to force-write the output,
+    /// Whether to force-write the output,
     /// even if potential issues with the formatting have been detected.
     #[arg(long)]
     force: bool,

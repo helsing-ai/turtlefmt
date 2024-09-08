@@ -23,7 +23,7 @@ use tree_sitter::{Language, Node};
 pub struct FormatOptions {
     /// Number of spaces used for one level of indentation
     pub indentation: usize,
-    /// Wether to sort subjects, predicates and objects,
+    /// Whether to sort subjects, predicates and objects,
     /// including within blank-nodes
     pub sort_terms: bool,
     /// Enables inserting new-lines before the following:
@@ -35,10 +35,11 @@ pub struct FormatOptions {
     ///   see <https://www.w3.org/TR/rdf12-turtle/#collections>
     /// - each predicate within a blank-node
     pub new_lines_for_easy_diff: bool,
-    /// Wether to move a single/lone object (within one subject-predicate pair) onto a new line,
+    /// Whether to move a single/lone object
+    /// (within one subject-predicate pair) onto a new line,
     /// or to keep it on the same line as the predicate.
     pub single_object_on_new_line: bool,
-    /// Wether to force-write the output,
+    /// Whether to force-write the output,
     /// even if potential issues with the formatting have been detected.
     pub force: bool,
 }
