@@ -43,8 +43,8 @@ fn get_remote_file(url: &str) -> Result<String> {
 fn parse_turtle(url: &str, data: &str) -> Result<Graph> {
     TurtleParser::new()
         .with_base_iri(url)?
-        .parse_read(data.as_bytes())
-        .collect::<core::result::Result<_, _>>()
+        .for_slice(data.as_bytes())
+        .collect::<Result<_, _>>()
         .with_context(|| format!("Error while parsing:\n{data}"))
 }
 
