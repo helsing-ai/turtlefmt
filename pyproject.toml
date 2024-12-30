@@ -6,6 +6,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Rust",
 ]
+dynamic = ["version"]
 
 [project.urls]
 Source = "https://github.com/helsing-ai/turtlefmt"

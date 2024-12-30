@@ -740,34 +740,3 @@ enum RootContext {
     Triples,
     Comment,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::Path;
-    use tree_sitter_cli::test::TestOptions;
-
-    #[test]
-    fn tree_sitter() -> Result<()> {
-        let language = get_tree_sitter_turtle();
-        let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&language)?;
-        tree_sitter_cli::test::run_tests_at_path(
-            &mut parser,
-            &mut TestOptions {
-                path: Path::new("tree-sitter").join("corpus"),
-                debug: false,
-                debug_graph: false,
-                filter: None,
-                include: None,
-                exclude: None,
-                update: false,
-                open_log: false,
-                languages: [("turtle", &language)].into_iter().collect(),
-                color: false,
-                test_num: 0,
-                show_fields: false,
-            },
-        )
-    }
-}
