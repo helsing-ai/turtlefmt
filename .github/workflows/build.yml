@@ -20,14 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup update && rustup component add rustfmt
       - run: cargo fmt -- --check
 
   clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup update && rustup override set 1.80.1 && rustup component add clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets -- -D warnings -D clippy::all
 
@@ -35,7 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup update
       - uses: Swatinem/rust-cache@v2
       - run: cargo test
 
@@ -43,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup update && rustup override set 1.76.0
+      - run: rustup override set 1.81.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo test
 
@@ -51,7 +48,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup update && rustup override set 1.80.1
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --no-deps
         env:
