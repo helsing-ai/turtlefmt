@@ -61,7 +61,7 @@ struct TurtleFormatter<'a, W: Write> {
     prefixes: HashMap<String, String>,
 }
 
-impl<'a, W: Write> TurtleFormatter<'a, W> {
+impl<W: Write> TurtleFormatter<'_, W> {
     fn fmt_doc(&mut self, node: Node<'_>) -> Result<()> {
         debug_assert_eq!(node.kind(), "turtle_doc");
 
@@ -631,7 +631,7 @@ impl<'a> StringDecoder<'a> {
     }
 }
 
-impl<'a> Iterator for StringDecoder<'a> {
+impl Iterator for StringDecoder<'_> {
     type Item = Result<char>;
 
     fn next(&mut self) -> Option<Result<char>> {
@@ -693,7 +693,7 @@ fn is_turtle_decimal(value: &str) -> bool {
     if value.starts_with(b"+") || value.starts_with(b"-") {
         value = &value[1..];
     }
-    while value.first().map_or(false, |c| c.is_ascii_digit()) {
+    while value.first().is_some_and(|c| c.is_ascii_digit()) {
         value = &value[1..];
     }
     if !value.starts_with(b".") {
@@ -711,14 +711,14 @@ fn is_turtle_double(value: &str) -> bool {
         value = &value[1..];
     }
     let mut with_before = false;
-    while value.first().map_or(false, |c| c.is_ascii_digit()) {
+    while value.first().is_some_and(|c| c.is_ascii_digit()) {
         value = &value[1..];
         with_before = true;
     }
     let mut with_after = false;
     if value.starts_with(b".") {
         value = &value[1..];
-        while value.first().map_or(false, |c| c.is_ascii_digit()) {
+        while value.first().is_some_and(|c| c.is_ascii_digit()) {
             value = &value[1..];
             with_after = true;
         }
