@@ -34,6 +34,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: tests/cache
+          key: tests-cache
       - run: cargo test
 
   test_msv:
@@ -42,7 +46,26 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup override set 1.81.0
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: tests/cache
+          key: tests-cache
       - run: cargo test
+
+  test_tree_sitter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with: { tool: tree-sitter-cli }
+      - run: tree-sitter generate
+        working-directory: tree-sitter
+      - run: tree-sitter test
+        working-directory: tree-sitter
+      - run: tree-sitter fuzz
+        working-directory: tree-sitter
+
 
   rustdoc:
     runs-on: ubuntu-latest
@@ -57,8 +80,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo install typos-cli || true
+      - uses: taiki-e/install-action@v2
+        with: { tool: typos-cli }
       - run: typos
 
   python_sdist:
